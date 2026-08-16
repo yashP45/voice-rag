@@ -1,0 +1,27 @@
+# --- secrets ---
+.env
+.env.local
+*.local
+
+# --- python ---
+api/.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# --- data & model artifacts (regenerate with scripts/) ---
+api/data/
+!api/data/.gitkeep
+
+# --- node / next ---
+node_modules/
+web/.next/
+web/out/
+web/build/
+next-env.d.ts
+
+# --- os / editor ---
+.DS_Store
+Thumbs.db
+.vscode/
