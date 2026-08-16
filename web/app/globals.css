@@ -1,0 +1,267 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------
+   Hacker House Goa theme.
+
+   Deep green field, yellow display type, hot-pink accents, cream
+   pinned cards. The palette is fixed rather than theme-switchable —
+   it IS the brand, and a "light mode" version of it would just be a
+   different, worse identity.
+   ------------------------------------------------------------------ */
+
+:root {
+  --green: #0f5c34;
+  --green-deep: #0a4527;
+  --green-lift: #146d3e;
+
+  --yellow: #f7dc1e;
+  --yellow-dim: #d4bc10;
+
+  --pink: #f5197e;
+  --pink-soft: #ff5aa8;
+
+  --cream: #fbf5e4;
+  --cream-dim: #efe7d2;
+
+  --ink: #1a1a17;
+  --ink-soft: #4a4a42;
+  --ink-faint: #7d7a6e;
+
+  /* Status. Yellow is "good" here — green would vanish into the field. */
+  --ok: #f7dc1e;
+  --warn: #ff9d2e;
+  --danger: #f5197e;
+
+  /* Stage colours, bound to stage IDENTITY so "pink is retrieval" stays
+     true across every query rather than being reassigned by rank. */
+  --stage-normalize: #9fd6b4;
+  --stage-embed: #7fd4ff;
+  --stage-guard: #ff9d2e;
+  --stage-retrieve: #f5197e;
+  --stage-fuse: #f7dc1e;
+  --stage-generate: #c77dff;
+
+  --rule: rgba(251, 245, 228, 0.18);
+  --rule-strong: rgba(251, 245, 228, 0.34);
+}
+
+@theme inline {
+  --color-green: var(--green);
+  --color-green-deep: var(--green-deep);
+  --color-green-lift: var(--green-lift);
+  --color-yellow: var(--yellow);
+  --color-pink: var(--pink);
+  --color-cream: var(--cream);
+  --color-cream-dim: var(--cream-dim);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-display);
+}
+
+html,
+body {
+  background-color: var(--green);
+  color: var(--cream);
+}
+
+body {
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  /* Indic scripts need the extra leading — Devanagari matras and Tamil
+     descenders clip at tighter line heights. */
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display {
+  font-family: var(--font-display), Georgia, serif;
+  letter-spacing: -0.02em;
+}
+
+.label {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.68rem;
+}
+
+/* ---------------- background field ---------------- */
+
+.field {
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  background: var(--green);
+}
+
+/* Faint paper weave, generated inline so nothing external loads. */
+.field-grain {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  opacity: 0.09;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Slow-drifting dot grid: depth, not motion. */
+.field-dots {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(247, 220, 30, 0.16) 1px, transparent 1px);
+  background-size: 26px 26px;
+  animation: drift 100s linear infinite;
+}
+
+@keyframes drift {
+  to {
+    background-position: 26px 26px;
+  }
+}
+
+.glow {
+  position: fixed;
+  border-radius: 9999px;
+  filter: blur(90px);
+  pointer-events: none;
+  z-index: -1;
+  will-change: transform;
+}
+
+@keyframes float-a {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  33%      { transform: translate3d(7vw, -5vh, 0) scale(1.18); }
+  66%      { transform: translate3d(-4vw, 6vh, 0) scale(0.9); }
+}
+
+@keyframes float-b {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(-8vw, 7vh, 0) scale(1.22); }
+}
+
+/* ---------------- pinned cards ---------------- */
+
+.pinned {
+  position: relative;
+  background: var(--cream);
+  color: var(--ink);
+  border-radius: 3px;
+  box-shadow:
+    0 10px 22px -6px rgba(0, 0, 0, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 220ms ease;
+}
+
+/* Each card sits at a slightly different angle, like something actually
+   pinned to a board. Straightens on hover so text is easy to read. */
+.pinned:nth-of-type(3n + 1) { transform: rotate(-0.7deg); }
+.pinned:nth-of-type(3n + 2) { transform: rotate(0.5deg); }
+.pinned:nth-of-type(3n + 3) { transform: rotate(-0.3deg); }
+
+.pinned:hover {
+  transform: rotate(0deg) translateY(-2px);
+  box-shadow:
+    0 16px 30px -8px rgba(0, 0, 0, 0.45),
+    0 3px 6px rgba(0, 0, 0, 0.22);
+}
+
+/* The pin itself. */
+.pinned::before {
+  content: "";
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  width: 15px;
+  height: 15px;
+  margin-left: -7.5px;
+  border-radius: 9999px 9999px 4px 4px;
+  background: var(--pink);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.35);
+  z-index: 2;
+}
+
+.pinned.pin-yellow::before { background: var(--yellow); }
+.pinned.pin-cream::before  { background: var(--cream-dim); }
+.pinned.no-pin::before     { display: none; }
+
+/* ---------------- buttons ---------------- */
+
+.btn-apply {
+  background: var(--yellow);
+  color: var(--green-deep);
+  font-family: var(--font-geist-mono), monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  box-shadow: 0 0 0 3px rgba(247, 220, 30, 0.22), 0 0 26px rgba(247, 220, 30, 0.4);
+  transition: box-shadow 200ms ease, transform 200ms ease;
+}
+.btn-apply:hover:not(:disabled) {
+  box-shadow: 0 0 0 4px rgba(247, 220, 30, 0.3), 0 0 38px rgba(247, 220, 30, 0.6);
+  transform: translateY(-1px);
+}
+.btn-apply:disabled { opacity: 0.45; box-shadow: none; }
+
+.btn-pink {
+  background: var(--pink);
+  color: #fff;
+  font-family: var(--font-geist-mono), monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  transition: filter 200ms ease, transform 200ms ease;
+}
+.btn-pink:hover:not(:disabled) { filter: brightness(1.12); transform: translateY(-1px); }
+
+/* ---------------- voice pulse ---------------- */
+
+@keyframes ring-out {
+  0%   { transform: scale(1);   opacity: 0.6; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+.rec-ring::before,
+.rec-ring::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  border: 2px solid var(--pink);
+  animation: ring-out 1.8s ease-out infinite;
+  pointer-events: none;
+}
+.rec-ring::after { animation-delay: 0.9s; }
+
+/* ---------------- entrance ---------------- */
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; }
+}
+.rise { animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@keyframes sweep {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(340%); }
+}
+.sweep { animation: sweep 1.2s ease-in-out infinite; }
+
+/* ---------------- reduced motion ----------------
+   All of this is decorative, so honour the OS setting completely.
+   The interface loses nothing functional. */
+@media (prefers-reduced-motion: reduce) {
+  .field-dots, .glow, .rise, .sweep,
+  .rec-ring::before, .rec-ring::after {
+    animation: none !important;
+  }
+  .rise { opacity: 1; transform: none; }
+  .pinned, .pinned:hover { transform: none; transition: none; }
+}
