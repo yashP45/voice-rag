@@ -1,0 +1,26 @@
+# Normalize line endings.
+#
+# Development happens on Windows, deployment is Linux. A shell script that
+# reaches the VM with CRLF fails as `bad interpreter: /usr/bin/env bash^M`,
+# which is an obscure way to discover a line-ending problem at deploy time.
+# Force LF for everything the VM executes or parses.
+
+* text=auto
+
+*.sh        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.py        text eol=lf
+Dockerfile  text eol=lf
+.env.example text eol=lf
+
+# PowerShell only ever runs on Windows here.
+*.ps1       text eol=crlf
+
+# Binary — never touch.
+*.ttf   binary
+*.ico   binary
+*.png   binary
+*.parquet binary
+*.faiss binary
+*.npy   binary

@@ -1,0 +1,72 @@
+name: Deploy to VM
+
+# Auto-deploy on push to main. The actual deploy logic lives in
+# deploy/vm-deploy.sh so it is version-controlled next to the code it ships and
+# can be run by hand on the box when the pipeline is not the right tool.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "api/**"
+      - "web/**"
+      - "deploy/vm-deploy.sh"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+# Never let two deploys interleave on one box. `cancel-in-progress: false`
+# matters: killing a deploy halfway through a systemd restart would leave the
+# service down with no rollback having run.
+concurrency:
+  group: deploy-vm
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Authorize SSH to the VM
+        env:
+          KEY: ${{ secrets.VM_SSH_KEY }}
+          HOST: ${{ secrets.VM_HOST }}
+          KNOWN_HOSTS: ${{ secrets.VM_KNOWN_HOSTS }}
+        run: |
+          test -n "$KEY"  || { echo "::error::secret VM_SSH_KEY is not set";  exit 1; }
+          test -n "$HOST" || { echo "::error::secret VM_HOST is not set";     exit 1; }
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          # Pin the host key rather than accepting blindly: this connection
+          # carries a key that can restart production, so an unverified host is
+          # a real MITM opportunity, not a formality.
+          if [ -n "$KNOWN_HOSTS" ]; then
+            printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            echo "::warning::VM_KNOWN_HOSTS not set — falling back to TOFU"
+            ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Deploy
+        env:
+          HOST: ${{ secrets.VM_HOST }}
+          USER: ${{ secrets.VM_USER || 'ubuntu' }}
+        run: |
+          ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes -o BatchMode=yes \
+              -o ConnectTimeout=20 "$USER@$HOST" \
+              'bash ~/voice-rag/deploy/vm-deploy.sh'
+
+      - name: Report live state
+        if: always()
+        env:
+          HOST: ${{ secrets.VM_HOST }}
+          USER: ${{ secrets.VM_USER || 'ubuntu' }}
+        run: |
+          ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes -o BatchMode=yes \
+              "$USER@$HOST" '
+            echo "commit : $(git -C ~/voice-rag rev-parse --short HEAD)"
+            echo "api    : $(systemctl is-active voicerag-api)"
+            echo "web    : $(systemctl is-active voicerag-web)"
+            curl -s -m 5 http://127.0.0.1:8000/health || echo "api unreachable"
+          ' || echo "could not reach the VM to report state"
