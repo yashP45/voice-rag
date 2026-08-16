@@ -32,19 +32,33 @@ say "1/3  resolving the port-3000 conflict"
 # port the instant the manual process dies and we cannot tell them apart.
 sudo systemctl stop voicerag-web 2>/dev/null || true
 
-MANUAL=$(pgrep -f 'next start -p 3000' || true)
-if [ -n "$MANUAL" ]; then
-  echo "  stopping hand-started process(es): $(tr '\n' ' ' <<<"$MANUAL")"
+# Identify the squatter by the PORT IT HOLDS, never by command name. Next
+# spawns a worker that renames itself to "next-server (v16.3.1)" — it does not
+# match `next start -p 3000` at all, and when its parents are killed it is
+# reparented to init and quietly keeps the socket. Matching on the cmdline kills
+# the wrapper, leaves the listener, and the unit crash-loops on EADDRINUSE
+# looking exactly like it did before.
+port_holders() {
+  sudo ss -tlnpH 'sport = :3000' 2>/dev/null | grep -oP 'pid=\K[0-9]+' | sort -u
+}
+
+HOLDERS=$(port_holders)
+if [ -n "$HOLDERS" ]; then
+  echo "  stopping process(es) holding :3000 -> $(tr '\n' ' ' <<<"$HOLDERS")"
   # shellcheck disable=SC2086
-  kill $MANUAL 2>/dev/null || true
-  for _ in $(seq 1 10); do pgrep -f 'next start -p 3000' >/dev/null || break; sleep 1; done
-  # shellcheck disable=SC2046
-  pgrep -f 'next start -p 3000' >/dev/null && kill -9 $(pgrep -f 'next start -p 3000') 2>/dev/null || true
+  sudo kill $HOLDERS 2>/dev/null || true
+  for _ in $(seq 1 10); do [ -z "$(port_holders)" ] && break; sleep 1; done
+  STILL=$(port_holders)
+  if [ -n "$STILL" ]; then
+    echo "  forcing: $(tr '\n' ' ' <<<"$STILL")"
+    # shellcheck disable=SC2086
+    sudo kill -9 $STILL 2>/dev/null || true
+    sleep 2
+  fi
 else
-  echo "  no hand-started process found"
+  echo "  nothing holding :3000"
 fi
-# Also clear the nohup wrapper that spawned it, so it cannot respawn.
-pkill -f 'nohup npx next start -p 3000' 2>/dev/null || true
+[ -z "$(port_holders)" ] && echo "  :3000 is free" || echo "  WARNING: :3000 still occupied"
 
 sudo systemctl reset-failed voicerag-web 2>/dev/null || true
 
