@@ -23,6 +23,7 @@ import numpy as np
 from fastapi import APIRouter
 
 from app.config import settings
+from app.core import latency
 from app.core.text import detect_script_lang, normalize
 from app.core.timing import TimingBreakdown, TimingCollector
 from app.embedding.onnx_embedder import get_embedder
@@ -60,6 +61,16 @@ def _refuse(
     retrieval: dict | None = None,
     citations: list[Citation] | None = None,
 ) -> QueryResponse:
+    timing = TimingBreakdown(
+        total_ms=round(tc.total_ms(), 3),
+        retrieval_ms=round(tc.sum_of("normalize", "guards.input", "embed",
+                                     "guard.offtopic", "retrieve", "fuse"), 3),
+        stages=tc.stages,
+    )
+    # Refusals are measured too, and deliberately so: a guardrail short-circuit
+    # is the FAST path, so dropping them would bias the percentiles upward and
+    # flatter the numbers.
+    latency.record(timing, endpoint="query", outcome=reason.value, lang=lang)
     return QueryResponse(
         query=req.query,
         detected_lang=lang,
@@ -70,12 +81,7 @@ def _refuse(
         guardrails=checks,
         generated_by="none",
         retrieval=retrieval or {},
-        timing=TimingBreakdown(
-            total_ms=round(tc.total_ms(), 3),
-            retrieval_ms=round(tc.sum_of("normalize", "guards.input", "embed",
-                                         "guard.offtopic", "retrieve", "fuse"), 3),
-            stages=tc.stages,
-        ),
+        timing=timing,
     )
 
 
@@ -209,6 +215,17 @@ def query(req: QueryRequest) -> QueryResponse:
 
     cited = [c for c in citations if c.chunk_id in set(valid_ids)] or citations[:3]
 
+    timing = TimingBreakdown(
+        total_ms=round(tc.total_ms(), 3),
+        retrieval_ms=round(
+            tc.sum_of("normalize", "guards.input", "embed",
+                      "guard.offtopic", "retrieve", "fuse", "guard.confidence"), 3
+        ),
+        generation_ms=round(tc.sum_of("generate"), 3),
+        stages=tc.stages,
+    )
+    latency.record(timing, endpoint="query", outcome="answered", lang=lang)
+
     return QueryResponse(
         query=req.query,
         detected_lang=lang,
@@ -221,13 +238,5 @@ def query(req: QueryRequest) -> QueryResponse:
         generated_by=gen.generated_by,  # type: ignore[arg-type]
         tool_hops=gen.tool_hops,
         retrieval=retrieval_meta,
-        timing=TimingBreakdown(
-            total_ms=round(tc.total_ms(), 3),
-            retrieval_ms=round(
-                tc.sum_of("normalize", "guards.input", "embed",
-                          "guard.offtopic", "retrieve", "fuse", "guard.confidence"), 3
-            ),
-            generation_ms=round(tc.sum_of("generate"), 3),
-            stages=tc.stages,
-        ),
+        timing=timing,
     )

@@ -20,6 +20,7 @@ from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 
 from app.api import routes_query, routes_retrieve  # noqa: E402
+from app.core import latency  # noqa: E402
 from app.embedding.onnx_embedder import get_embedder  # noqa: E402
 from app.index.multi_index import get_retriever  # noqa: E402
 
@@ -86,6 +87,24 @@ def stats() -> dict:
     if not STATE["ready"]:
         return {"ready": False, "error": STATE["error"]}
     return get_retriever().stats()
+
+
+@app.get("/api/v1/metrics")
+def metrics() -> dict:
+    """Live latency distribution over every request this process has served.
+
+    Complements scripts/benchmark.py rather than replacing it: the benchmark is
+    a controlled run over held-out queries and is the number to cite; this is
+    what the server has actually experienced, including real user queries no
+    curated set contains. Both use the same nearest-rank percentile so they are
+    directly comparable.
+    """
+    return latency.summary()
+
+
+@app.post("/api/v1/metrics/reset")
+def metrics_reset() -> dict:
+    return {"cleared": latency.reset()}
 
 
 @app.get("/api/v1/config")

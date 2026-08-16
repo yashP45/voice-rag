@@ -18,6 +18,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from app.config import settings
+from app.core import latency
 from app.core.text import detect_script_lang, normalize
 from app.core.timing import TimingBreakdown, TimingCollector
 from app.embedding.onnx_embedder import get_embedder
@@ -120,6 +121,13 @@ def retrieve(req: RetrieveRequest) -> RetrieveResponse:
     # would report ~4x their true wall cost. The SLO is a wall-clock claim.
     retrieval_ms = tc.total_ms()
 
+    timing = TimingBreakdown(
+        total_ms=round(tc.total_ms(), 3),
+        retrieval_ms=round(retrieval_ms, 3),
+        stages=tc.stages,
+    )
+    latency.record(timing, endpoint="retrieve", outcome="retrieved", lang=lang)
+
     return RetrieveResponse(
         query=req.query,
         normalized_query=q,
@@ -129,11 +137,7 @@ def retrieve(req: RetrieveRequest) -> RetrieveResponse:
         top_score=passages[0].score if passages else 0.0,
         rrf_flatness=round(flat, 4) if flat != float("inf") else 999.0,
         off_topic_similarity=round(off_topic_sim, 4) if off_topic_sim is not None else None,
-        timing=TimingBreakdown(
-            total_ms=round(tc.total_ms(), 3),
-            retrieval_ms=round(retrieval_ms, 3),
-            stages=tc.stages,
-        ),
+        timing=timing,
         per_strategy={
             k: [{"chunk_id": c, "score": round(s, 4)} for c, s in v[:5]]
             for k, v in raw.items()
