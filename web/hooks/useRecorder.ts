@@ -42,11 +42,23 @@ export function useRecorder(): UseRecorder {
   const rafRef = useRef<number | null>(null);
   const startedAtRef = useRef<number>(0);
 
-  const supported =
-    typeof window !== "undefined" &&
-    typeof navigator !== "undefined" &&
-    !!navigator.mediaDevices?.getUserMedia &&
-    typeof MediaRecorder !== "undefined";
+  /* Probed in an effect, not during render. Reading navigator.mediaDevices
+     while rendering makes the server say "unsupported" and the client say
+     "supported" — a hydration mismatch on every single page load, after which
+     React throws away that subtree and re-renders it.
+
+     `null` means "not probed yet" and is what BOTH the server and the first
+     client paint see, so they agree. Purely a correctness fix: no styling,
+     no layout, no visual change. */
+  const [supported, setSupported] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    setSupported(
+      typeof navigator !== "undefined" &&
+        !!navigator.mediaDevices?.getUserMedia &&
+        typeof MediaRecorder !== "undefined",
+    );
+  }, []);
 
   const cleanup = useCallback(() => {
     if (rafRef.current !== null) {
@@ -173,5 +185,10 @@ export function useRecorder(): UseRecorder {
     return blob;
   }, [cleanup]);
 
-  return { state, level, error, durationMs, start, stop, supported };
+  // `supported === null` (still probing) reports false, so a caller that
+  // only checks this renders a disabled control, never a false negative.
+  return {
+    state, level, error, durationMs, start, stop,
+    supported: supported === true,
+  };
 }
