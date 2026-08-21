@@ -25,3 +25,4 @@ next-env.d.ts
 .DS_Store
 Thumbs.db
 .vscode/
+*.code-workspace   # references ../voice-rag-v2, which is not in this repo
