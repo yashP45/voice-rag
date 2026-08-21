@@ -105,6 +105,9 @@ export interface Citation {
   text: string;
   lang?: string | null;
   score: number;
+  /** True only when the dataset labelled THIS passage as the answer to THIS
+   *  query. Query-scoped server-side — see MultiIndexRetriever.is_gold_for. */
+  is_gold?: boolean;
 }
 
 export interface QueryResponse {
@@ -122,6 +125,10 @@ export interface QueryResponse {
   tool_hops: number;
   retrieval: Record<string, unknown>;
   timing: TimingBreakdown;
+  /** Injected by app/api/ask — the full retrieved set. /api/v1/query itself
+   *  only returns the subset the LLM cited, so without this the evidence
+   *  panel shows citations rather than evidence. */
+  retrieved_passages?: Passage[];
 }
 
 export const GUARD_LABELS: Record<string, string> = {
@@ -131,3 +138,40 @@ export const GUARD_LABELS: Record<string, string> = {
   "guard.citations": "Guardrail G6: citation validity",
   "guard.groundedness": "Guardrail G5: groundedness",
 };
+
+/** One latency distribution from GET /api/metrics. Nearest-rank percentiles,
+ *  the same definition scripts/benchmark.py uses. */
+export interface Percentiles {
+  stage: string;
+  n: number;
+  p50: number;
+  p70: number;
+  p90: number;
+  p95: number;
+  p99: number;
+  p100: number;
+  mean: number;
+  stdev: number;
+}
+
+/** GET /api/metrics — rolling window over every request the API has served. */
+export interface MetricsSummary {
+  samples: number;
+  window: number;
+  budget_ms: number;
+  retrieval?: Percentiles;
+  total?: Percentiles | null;
+  generation?: Percentiles | null;
+  stages?: Percentiles[];
+  budget_compliance?: {
+    threshold_ms: number;
+    within: number;
+    total: number;
+    percentage: number;
+    measures: string;
+  };
+  by_language?: Record<string, { n: number; p50: number; p100: number }>;
+  outcomes?: Record<string, number>;
+  endpoints?: Record<string, number>;
+  note?: string;
+}
