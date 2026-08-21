@@ -19,6 +19,7 @@ import pyarrow.parquet as pq
 
 from app.chunking.registry import DENSE_STRATEGIES
 from app.config import settings
+from app.core.text import normalize
 from app.core.timing import TimingCollector
 from app.index.bm25_store import BM25Store
 from app.index.faiss_store import FaissStore
@@ -123,6 +124,31 @@ class MultiIndexRetriever:
 
     def doc(self, doc_id: str) -> dict[str, Any]:
         return self.docs.get(doc_id, {})
+
+    def is_gold_for(self, doc_id: str, query_norm: str) -> bool:
+        """Was this document the labelled answer to THIS query?
+
+        `is_selected` is MS MARCO's per-(query, passage) judgement, and it is
+        carried on the DOCUMENT — it means "gold for the query that produced
+        me", not "gold for whatever you just asked". Reading it without
+        checking the query is how 84 documents in this index came to be
+        flagged as ground truth for every question in the system.
+
+        Both the document's native-script and English query forms are
+        compared, so a Hindi question can still legitimately match an English
+        gold passage — which is the cross-lingual case worth showing.
+
+        `query_norm` must already be normalize()d and casefolded; the caller
+        does it once per request rather than once per passage.
+        """
+        d = self.docs.get(doc_id)
+        if not d or not d.get("is_selected"):
+            return False
+        for field in ("source_query", "eng_query"):
+            other = d.get(field)
+            if other and normalize(str(other)).casefold() == query_norm:
+                return True
+        return False
 
     def stats(self) -> dict[str, Any]:
         return {

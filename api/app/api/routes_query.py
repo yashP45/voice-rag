@@ -148,9 +148,11 @@ def query(req: QueryRequest) -> QueryResponse:
         "flatness": round(flatness, 4) if flatness != float("inf") else None,
         "per_strategy": {k: len(v) for k, v in raw.items()},
     }
+    q_norm = q.casefold()  # q is already normalize()d above
     citations = [
         Citation(doc_id=c["doc_id"], chunk_id=c["chunk_id"], text=c["text"],
-                 lang=c["lang"], score=round(c["score"], 4))
+                 lang=c["lang"], score=round(c["score"], 4),
+                 is_gold=ret.is_gold_for(c["doc_id"], q_norm))
         for c in contexts
     ]
 

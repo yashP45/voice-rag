@@ -63,6 +63,10 @@ class Citation(BaseModel):
     text: str
     lang: str | None = None
     score: float
+    # True only when the dataset labelled THIS passage as the answer to THIS
+    # query. Carried on /query as well as /retrieve so a frontend does not
+    # need a second round trip just to show it.
+    is_gold: bool = False
 
 
 class SentenceSupport(BaseModel):

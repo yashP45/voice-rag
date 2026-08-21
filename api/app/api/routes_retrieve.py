@@ -103,6 +103,9 @@ def retrieve(req: RetrieveRequest) -> RetrieveResponse:
         else:
             top = fused[: req.top_k]
 
+    # Normalized once per request, not once per passage.
+    q_norm = normalize(req.query).casefold()
+
     passages = [
         PassageOut(
             doc_id=h.doc_id,
@@ -111,7 +114,7 @@ def retrieve(req: RetrieveRequest) -> RetrieveResponse:
             lang=(ret.chunks.get(h.best_chunk_id) or {}).get("lang"),
             score=round(h.best_dense_score, 4),
             rrf_score=round(h.rrf_score, 6),
-            is_gold=bool((ret.doc(h.doc_id) or {}).get("is_selected")),
+            is_gold=ret.is_gold_for(h.doc_id, q_norm),
             strategies=h.strategies,
         )
         for h in top
